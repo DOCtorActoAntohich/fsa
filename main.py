@@ -2,6 +2,7 @@
 
 import collections
 import sys
+import re
 
 
 
@@ -14,12 +15,54 @@ k_transitions = "trans"
 
 
 def read_file(filename):
+	"""Reads the file and transforms it to FSA description.
+
+	Input file format must be:
+	states=[s1,s2,...]
+	alpha=[a1,a2,...]
+	init.st=[s]
+	fin.st=[s1,s2,...]
+	trans=[s1>a>s2,...]
+
+	Parameters:
+	- filename -> str: a path to a file.
+
+	Returns -> map:
+	FSA description.
+
+	Exceptions:
+	- OSError - file not found.
+	- ValueError - incorrect file format.
+	"""
+
 	fsa_description = dict()
+	
+	input_regex = [
+		# Any strings separated by commas
+		r"states=\[([a-zA-Z0-9]+,)*([a-zA-Z0-9])+\]",
+
+		# Same as before but strings can contain underscores.
+		r"alpha=\[([a-zA-Z0-9_]+,)*([a-zA-Z0-9_])+\]",
+
+		# Same as 1st line but brackets can be empty (for E4 - no initial state defined).
+		r"init\.st=\[([a-zA-Z0-9]+){0,1}\]",
+
+		# Zero or more strings separated by comma (for W1 - no final state).
+		r"fin\.st=\[(([a-zA-Z0-9]+,)*([a-zA-z0-9]+))*\]",
+
+		# Same as before, but strings are in format "s1>t>s2" (for E2 - disjoint states).
+		r"trans=\[(((([a-zA-Z0-9]+)>([a-zA-Z0-9_]+)>([a-zA-Z0-9]+)),)*(([a-zA-Z0-9]+)>([a-zA-Z0-9_]+)>([a-zA-Z0-9]+)))*\]"
+	]
 	with open(filename, "r") as file:
+		i = 0
 		for line in file.readlines():
-			key, tmp_value = line.strip().split("=")
+			line = line.strip();
+			if re.match(input_regex[i], line) == None:
+				raise ValueError("Incorrect file format.")
+			key, tmp_value = line.split("=")
 			values = tmp_value[1:-1].split(",")
 			fsa_description[key] = list(filter(lambda x: True if x != "" else False, values))
+			i += 1
 
 	if len(fsa_description[k_initial_state]) != 0:
 		fsa_description[k_initial_state] = fsa_description[k_initial_state][0]
@@ -37,14 +80,20 @@ def read_file(filename):
 
 
 def is_disjoint(fsa):
-	# BFS is used here.
+	"""Checks if FSA has disjoint states using BFS.
+	
+	Parameters:
+	- fsa -> map: a description of FSA.
+
+	Returns -> bool:
+	True if FSA has dosjoint states, False otherwise.
+	"""
+
 	graph = dict()
+	for state in fsa[k_states]:
+		graph[state] = []
 	for state_from, _, state_to in fsa[k_transitions]:
-		if state_from not in graph.keys():
-			graph[state_from] = []
 		graph[state_from].append(state_to)
-		if state_to not in graph.keys():
-			graph[state_to] = []
 		graph[state_to].append(state_from)
 	
 	visited_nodes = set()
@@ -62,6 +111,15 @@ def is_disjoint(fsa):
 
 
 def find_error(fsa):
+	"""Checks if FSA has errors in its description.
+
+	Parameters:
+	- fsa -> map: a description of FSA.
+
+	Returns -> str, None:
+	Error string if there are errors in description, None otherwise.
+	"""
+
 	if fsa[k_initial_state] == None:
 		return "E4: Initial state is not defined"
 	elif fsa[k_initial_state] not in fsa[k_states]:
@@ -87,6 +145,15 @@ def find_error(fsa):
 
 
 def is_complete(fsa):
+	"""Checks if FSA is complete.
+
+	Parameters:
+	- fsa -> map: a description of FSA.
+
+	Returns -> bool:
+	True if FSA is complete, False otherwise.
+	"""
+
 	transitions_for_state = dict()
 	for state_from, transition, state_to in fsa[k_transitions]:
 		if state_from not in transitions_for_state.keys():
@@ -102,6 +169,15 @@ def is_complete(fsa):
 
 
 def is_deterministic(fsa):
+	"""Checks if FSA is deterministic.
+
+	Parameters:
+	- fsa -> map: a description of FSA.
+
+	Returns -> bool:
+	True if FSA is deterministic, False otherwise.
+	"""
+
 	transition_function = dict()
 	for state_from, transition, state_to in fsa[k_transitions]:
 		function_input = (state_from, transition)
@@ -115,7 +191,18 @@ def is_deterministic(fsa):
 
 
 def are_all_states_reachable(fsa):
-	# BFS is used here
+	"""Checks if every state of FSA can be reached from the initial state.
+	BFS is used here.
+
+	Parameters:
+	- fsa -> map: a description of FSA.
+
+	Returns -> bool:
+	True if all states can be reached from the initial state, False otherwise.
+
+	- fsa -> map: a description of FSA.
+	"""
+
 	graph = dict()
 	for state in fsa[k_states]:
 		graph[state] = []
@@ -137,13 +224,17 @@ def are_all_states_reachable(fsa):
 
 
 def main():
+	"""This is method main.
+	It is very main.
+	What did you expect?
+	"""
+
 	try:
 		fsa = read_file("fsa.txt");
-		if len(fsa) != 5:
-			raise Exception;
-	except:
+	except ValueError:
+		print("Error:")
 		print("E5: Input file is malformed")
-		return;
+		return
 
 	error = find_error(fsa)
 	if error != None:
